@@ -58,8 +58,8 @@ const useStyles = makeStyles((theme) => ({
     width: 500,
   },
   paper:{
-    width:"80vh",
-    height:"70vh",
+    width:"90vh",
+    height:"65vh",
     margin:"auto",
     marginTop:25
   },
@@ -144,14 +144,68 @@ function WeatherCard({imgURL, weather}){
   )
 }
 
+function WeatherCardOneCall({imgURL, weather}){
+  const classes = useStyles()
+  return(
+    <div>
+      <Card>
+        <CardContent>
+          <img id="wicon" src={imgURL} alt="Weather icon"></img>
+          <Typography variant="h5" component="h2">
+            {weather.weather[0].description.toUpperCase()}
+          </Typography>
+          <Box display="flex" justifyContent="center" m={1} p={1}>
+            <Paper className={classes.paperLabel}>
+              <Typography variant="h6" component="h2">
+                High: {weather.temp.max}°F
+              </Typography>
+            </Paper>
+            <Paper className={classes.paperLabel}>
+              <Typography variant="h6" component="h2">
+                Current: {weather.temp.day}°F
+              </Typography>
+            </Paper>
+            <Paper className={classes.paperLabel}>
+              <Typography variant="h6" component="h2">
+                Low: {weather.temp.min}°F
+              </Typography>
+            </Paper>
+          </Box>
+          <Box display="flex" justifyContent="center" m={1} p={1}>
+            <Paper className={classes.paperLabel}>
+              <Typography variant="h6" component="h2">
+                Humidity: {weather.humidity}%
+              </Typography>
+            </Paper>
+            <Paper className={classes.paperLabel}>
+              <Typography variant="h6" component="h2">
+                Wind Speed: {weather.wind_speed} MPH
+              </Typography>
+            </Paper>
+          </Box>
+        </CardContent>
+        {/* <CardActions>
+          <Button size="small">Learn More</Button>
+        </CardActions> */}
+      </Card>
+    </div>
+  )
+}
+
+
 function App() {
   const classes = useStyles();
   const theme = useTheme();
   const [value, setValue] = React.useState(0);
 
-  const [weather, setWeather] = useState(null);
+  const [weather, setWeather] = useState({weather:null});
+  const [weatherDaily, setWeatherDaily] = useState({weather:null});
+
   const [currentZip, setZip] = useState(22093)
   const [excluded, setExcluded] = useState()
+
+  const [lon, setLon] = useState(0)
+  const [lat, setLat] = useState(0)
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
@@ -167,6 +221,15 @@ function App() {
     url.searchParams.append("zip", currentZip);
     url.searchParams.append("units", "imperial");
     url.searchParams.append("exclude", currentExclude.toString())
+
+    const url2 = new URL("https://api.openweathermap.org/data/2.5/onecall");
+    url2.searchParams.append("appid", API_KEY);
+    url2.searchParams.append("lat", lat);
+    url2.searchParams.append("lon", lon);
+    // url2.searchParams.append("zip", currentZip);
+    url2.searchParams.append("units", "imperial");
+    url2.searchParams.append("exclude", dailyExclude.toString())
+    
     fetch(url)
       .then((resp) => {
         return resp.json();
@@ -182,17 +245,46 @@ function App() {
           setWeather(false);
         }
       });
+    
+    fetch(url2)
+      .then((resp) => {
+        return resp.json();
+      })
+      .then((obj) => {
+        // also important to check html error codes
+        // 200 means no errors
+        setWeatherDaily(obj);
+        console.log(obj)
+        console.log(url2)
+     
+      });
   }
 
   useEffect(() => {
     fetchWeather()
-  }, []);
+    getLocation()
+  }, [currentZip]);
 
   const handleZipCodeSubmit = () =>{
     console.log(currentZip)
   }
   const handleZipChange = (e) =>{
     setZip(e.target.value)
+  }
+
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(setPosition);
+    } else {
+      console.log("No geolocation here")
+    }
+  }
+  
+  function setPosition(position) {
+    const lat = position.coords.latitude
+    const lon = position.coords.longitude
+    setLat(lat)
+    setLon(lon)
   }
   //layout: Tabs for each view: Today's hour, Next two days, and Week-long forecat
   return (
@@ -211,6 +303,10 @@ function App() {
           Apply Zip
         </Button>
       </form>
+      <Typography variant="h6">
+        <br/>
+        <b>Current Location:</b> Latitude: {lat}, Longitude: {lon}
+      </Typography>
       <Paper className={classes.paper}>
         <AppBar position="static" color="default">
           <Tabs
@@ -232,17 +328,48 @@ function App() {
           onChangeIndex={handleChangeIndex}
         >
           <TabPanel value={value} index={0} dir={theme.direction}>
+            {weather.weather &&
               <WeatherCard className={classes.weatherCard} weather={weather} imgURL={"http://openweathermap.org/img/wn/"+String(weather.weather[0].icon)+"@2x.png"}/>
+            }
           </TabPanel>
           <TabPanel value={value} index={1} dir={theme.direction}>
+          {weatherDaily.daily &&
+
+            <Box display="flex" justifyContent="center" m={1} p={1} bgcolor="background.paper">
+              <WeatherCardOneCall className={classes.weatherCard} weather={weatherDaily.daily[1]} imgURL={"http://openweathermap.org/img/wn/"+String(weatherDaily.daily[1].weather[0].icon)+"@2x.png"}/>
+              <WeatherCardOneCall className={classes.weatherCard} weather={weatherDaily.daily[2]} imgURL={"http://openweathermap.org/img/wn/"+String(weatherDaily.daily[2].weather[0].icon)+"@2x.png"}/>
+            </Box>
+          }
 
           </TabPanel>
           <TabPanel value={value} index={2} dir={theme.direction}>
-            Item Three
+          {weatherDaily.daily &&
+
+            <Box display="flex" justifyContent="left" m={1} p={1} bgcolor="background.paper">
+                {weatherDaily.daily.map((weather, index)=>{
+                  if(index === 0)
+                    return(
+                      <Box>
+                        Today
+                        <WeatherCardOneCall className={classes.weatherCard} weather={weather} imgURL={"http://openweathermap.org/img/wn/"+String(weather.weather[0].icon)+"@2x.png"}/>
+                      </Box>
+                    );
+                  return(
+                      <Box>
+                        Day: {index}
+                        <WeatherCardOneCall className={classes.weatherCard} weather={weather} imgURL={"http://openweathermap.org/img/wn/"+String(weather.weather[0].icon)+"@2x.png"}/>
+                      </Box>
+                    );
+                  })
+               
+                }
+            </Box>          
+        } 
           </TabPanel>
         </SwipeableViews>
       </Paper>
-      <pre>{JSON.stringify(weather, undefined, 4)}</pre>
+      {/* <pre>{JSON.stringify(weatherDaily, undefined, 4)}</pre> */}
+      
     </div>
   );
 }
