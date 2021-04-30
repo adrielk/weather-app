@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from 'prop-types';
 import SwipeableViews from 'react-swipeable-views';
-import API_KEY from './keys' 
 
 import { makeStyles, useTheme } from '@material-ui/core/styles'
 import {
@@ -17,7 +16,7 @@ import {
   CardActions,
   CardContent,
 }from '@material-ui/core'
-
+const API_KEY = process.env.REACT_APP_api_key
 //animated tab menu code source: https://material-ui.com/components/tabs/
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -203,6 +202,7 @@ function App() {
 
   const [currentZip, setZip] = useState(22093)
   const [excluded, setExcluded] = useState()
+  const [currentCity, setCurrentCity] = useState("Charlottesville,US-VA")
 
   const [lon, setLon] = useState(0)
   const [lat, setLat] = useState(0)
@@ -214,6 +214,29 @@ function App() {
   const handleChangeIndex = (index) => {
     setValue(index);
   };
+
+  const fetchCurrentWeatherByCity = () =>{
+    const url = new URL("https://api.openweathermap.org/data/2.5/weather");
+    url.searchParams.append("appid", API_KEY);
+    url.searchParams.append("q", currentCity);
+    url.searchParams.append("units", "imperial");
+    url.searchParams.append("exclude", currentExclude.toString())
+    
+    console.log("Fetching weather by city")
+    fetch(url)
+      .then((resp) => {
+        return resp.json();
+      })
+      .then((obj) => {
+        // also important to check html error codes
+        // 200 means no errors
+        if (obj.cod === 200) {
+          setWeather(obj);
+        } else {
+          setWeather(false);
+        }
+      });
+  }
 
   const fetchWeather = () =>{
     const url = new URL("https://api.openweathermap.org/data/2.5/weather");
@@ -272,6 +295,10 @@ function App() {
     setZip(e.target.value)
   }
 
+  const handleCityChange = (e) =>{
+    setCurrentCity(e.target.value)
+  }
+
   function getLocation() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(setPosition);
@@ -303,6 +330,7 @@ function App() {
           Apply Zip
         </Button>
       </form>
+      
       <Typography variant="h6">
         <br/>
         <b>Current Location:</b> Latitude: {lat}, Longitude: {lon}
@@ -330,7 +358,20 @@ function App() {
           <TabPanel value={value} index={0} dir={theme.direction}>
             {weather.weather &&
               <WeatherCard className={classes.weatherCard} weather={weather} imgURL={"http://openweathermap.org/img/wn/"+String(weather.weather[0].icon)+"@2x.png"}/>
+            
             }
+            <br/>
+            <form>
+              <TextField 
+                id="standard-search" 
+                label="City Id" 
+                value={currentCity}
+                onChange={handleCityChange}
+              />
+              <Button onClick={fetchCurrentWeatherByCity} className={classes.weatherButton} variant="contained" color="primary">
+                Apply City ID
+              </Button>
+            </form>
           </TabPanel>
           <TabPanel value={value} index={1} dir={theme.direction}>
           {weatherDaily.daily &&
